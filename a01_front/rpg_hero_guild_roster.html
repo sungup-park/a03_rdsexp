@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="ko" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RPG 용사 길드 명부 (Hero Guild Management)</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        rpg: {
+                            gold: '#fbbf24',
+                            dark: '#0a0d14',
+                            panel: '#121824',
+                            card: '#1a2234',
+                            accent: '#6366f1',
+                            crimson: '#e11d48',
+                            emerald: '#10b981'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                        serif: ['Cinzel', 'Georgia', 'serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            background-color: #07090e;
+            background-image: 
+                radial-gradient(at 10% 20%, rgba(99, 102, 241, 0.12) 0px, transparent 50%),
+                radial-gradient(at 90% 80%, rgba(225, 29, 72, 0.1) 0px, transparent 50%),
+                radial-gradient(at 50% 50%, rgba(16, 185, 129, 0.08) 0px, transparent 50%);
+            background-attachment: fixed;
+        }
+
+        /* RPG Gold & Neon Glow Effects */
+        .rpg-border {
+            border: 1px solid rgba(251, 191, 36, 0.2);
+        }
+        .rpg-panel {
+            background: rgba(18, 24, 36, 0.85);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+        .rpg-card {
+            background: linear-gradient(145deg, rgba(26, 34, 52, 0.9), rgba(15, 21, 33, 0.9));
+            border: 1px solid rgba(251, 191, 36, 0.15);
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .rpg-card:hover {
+            border-color: rgba(251, 191, 36, 0.5);
+            transform: translateY(-4px);
+            box-shadow: 0 12px 25px rgba(0, 0, 0, 0.6), 0 0 15px rgba(251, 191, 36, 0.15);
+        }
+
+        .gold-text-glow {
+            text-shadow: 0 0 10px rgba(251, 191, 36, 0.4);
+        }
+
+        /* Level Up Flash Animation */
+        @keyframes levelUpPulse {
+            0% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.8); transform: scale(1); }
+            50% { box-shadow: 0 0 35px 10px rgba(251, 191, 36, 0.9); transform: scale(1.03); }
+            100% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0); transform: scale(1); }
+        }
+        .anim-level-up {
+            animation: levelUpPulse 0.7s ease-out;
+        }
+
+        /* Skill Cast Animation */
+        @keyframes skillCast {
+            0% { filter: brightness(1); }
+            50% { filter: brightness(2) drop-shadow(0 0 20px #06b6d4); }
+            100% { filter: brightness(1); }
+        }
+        .anim-skill-cast {
+            animation: skillCast 0.6s ease-in-out;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #0a0d14; }
+        ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #fbbf24; }
+    </style>
+</head>
+<body class="text-slate-200 min-h-screen font-sans flex flex-col justify-between p-3 sm:p-6">
+
+    <!-- Header -->
+    <header class="max-w-7xl mx-auto w-full mb-6">
+        <div class="rpg-panel rounded-2xl p-5 md:p-6 flex flex-col md:flex-row items-center justify-between gap-4 border-b-2 border-b-amber-500/40">
+            <div class="flex items-center gap-4">
+                <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-amber-500 via-amber-600 to-red-700 flex items-center justify-center text-slate-950 text-3xl shadow-lg shadow-amber-500/20 border border-amber-300">
+                    <i class="fa-solid fa-shield-halved"></i>
+                </div>
+                <div>
+                    <h1 class="font-serif text-2xl md:text-3xl font-black tracking-wider text-amber-400 gold-text-glow flex items-center gap-2">
+                        HERO GUILD ROSTER
+                        <span class="text-xs font-sans font-normal px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-300 border border-amber-500/30">MariaDB Edition</span>
+                    </h1>
+                    <p class="text-xs md:text-sm text-slate-400 mt-0.5">전설의 용사 명부 및 실시간 전술 포지션 관리 시스템</p>
+                </div>
+            </div>
+
+            <!-- Header Action Buttons -->
+            <div class="flex flex-wrap items-center gap-2.5">
+                <button id="btn-reset" class="px-3.5 py-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-semibold flex items-center gap-2 transition">
+                    <i class="fa-solid fa-rotate-left text-amber-400"></i> 초기 5인 복원
+                </button>
+                <button id="btn-sql-modal" class="px-3.5 py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-semibold flex items-center gap-2 transition">
+                    <i class="fa-solid fa-database"></i> SQL 스크립트 보기
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="max-w-7xl mx-auto w-full flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        <!-- Left Column: Registration Form & Guild Summary (4 cols) -->
+        <section class="lg:col-span-4 flex flex-col gap-6">
+            
+            <!-- Hero Registration Form -->
+            <div class="rpg-panel rounded-2xl p-5 relative overflow-hidden">
+                <div class="flex items-center justify-between pb-3 mb-4 border-b border-slate-800">
+                    <h2 class="font-serif font-bold text-amber-300 text-base flex items-center gap-2">
+                        <i class="fa-solid fa-scroll text-amber-400"></i>
+                        신규 용사 길드 가입 신청서
+                    </h2>
+                    <span class="text-[10px] text-slate-400 font-mono">INSERT INTO hero_guild</span>
+                </div>
+
+                <form id="heroForm" class="space-y-3.5 text-xs">
+                    <!-- Nickname -->
+                    <div>
+                        <label for="nickname" class="block font-semibold text-slate-300 mb-1">용사 닉네임 (NICKNAME) *</label>
+                        <input type="text" id="nickname" required placeholder="예: 어둠의 기사"
+                            class="w-full bg-slate-950/80 border border-slate-700 rounded-xl px-3 py-2 text-slate-100 focus:outline-none focus:border-amber-500 transition">
+                    </div>
+
+                    <!-- Job Class -->
+                    <div>
+                        <label for="job_class" class="block font-semibold text-slate-300 mb-1">직업군 (JOB CLASS) *</label>
+                        <select id="job_class" required
+                            class="w-full bg-slate-950/80 border border-slate-700 rounded-xl px-3 py-2 text-slate-100 focus:outline-none focus:border-amber-500 transition cursor-pointer">
+                            <option value="" disabled selected>직업 선택...</option>
+                            <option value="강령술사">강령술사 (Necromancer)</option>
+                            <option value="수도사">수도사 (Monk)</option>
+                            <option value="광전사">광전사 (Berserker)</option>
+                            <option value="치유사">치유사 (Healer)</option>
+                            <option value="투사">투사 (Fighter)</option>
+                            <option value="마법사">마법사 (Mage)</option>
+                            <option value="암살자">암살자 (Assassin)</option>
+                            <option value="성기사">성기사 (Paladin)</option>
+                        </select>
+                    </div>
+
+                    <!-- Level & Main Skill -->
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label for="level" class="block font-semibold text-slate-300 mb-1">레벨 (LEVEL) *</label>
+                            <input type="number" id="level" min="1" max="99" value="1" required
+                                class="w-full bg-slate-950/80 border border-slate-700 rounded-xl px-3 py-2 text-slate-100 focus:outline-none focus:border-amber-500 transition">
+                        </div>
+                        <div>
+                            <label for="main_skill" class="block font-semibold text-slate-300 mb-1">주력 스킬 *</label>
+                            <input type="text" id="main_skill" required placeholder="예: 화염구"
+                                class="w-full bg-slate-950/80 border border-slate-700 rounded-xl px-3 py-2 text-slate-100 focus:outline-none focus:border-amber-500 transition">
+                        </div>
+                    </div>
+
+                    <!-- Tactical Position -->
+                    <div>
+                        <label for="tactical_position" class="block font-semibold text-slate-300 mb-1">전술 배치 포지션 *</label>
+                        <select id="tactical_position" required
+                            class="w-full bg-slate-950/80 border border-slate-700 rounded-xl px-3 py-2 text-slate-100 focus:outline-none focus:border-amber-500 transition cursor-pointer">
+                            <option value="최전방 돌격 대장">최전방 돌격 대장</option>
+                            <option value="전방 탱커 겸 딜러">전방 탱커 겸 딜러</option>
+                            <option value="측면 방어선">측면 방어선</option>
+                            <option value="후방 광역 딜러">후방 광역 딜러</option>
+                            <option value="후방 지원 및 힐러">후방 지원 및 힐러</option>
+                        </select>
+                    </div>
+
+                    <!-- Submit Button -->
+                    <button type="submit" class="w-full py-3 mt-1 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-xs shadow-lg shadow-amber-500/20 active:scale-[0.98] transition flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-feather-pointed"></i>
+                        길드 서약서 등록 (INSERT)
+                    </button>
+                </form>
+            </div>
+
+            <!-- Formation Map Visualizer Mini-Panel -->
+            <div class="rpg-panel rounded-2xl p-5">
+                <div class="flex items-center justify-between mb-3 pb-2 border-b border-slate-800">
+                    <h3 class="font-serif font-bold text-xs text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
+                        <i class="fa-solid fa-chess-board text-amber-400"></i> 전술 진형 모니터
+                    </h3>
+                    <span class="text-[10px] text-slate-500">배치 포지션 현황</span>
+                </div>
+
+                <div class="space-y-2 text-xs">
+                    <div class="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800 flex items-center justify-between">
+                        <span class="text-rose-400 font-semibold flex items-center gap-1.5"><i class="fa-solid fa-shield-cat"></i> 최전방/전방</span>
+                        <span id="count-front" class="font-mono bg-rose-500/20 text-rose-300 px-2 py-0.5 rounded-full border border-rose-500/30">0명</span>
+                    </div>
+                    <div class="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800 flex items-center justify-between">
+                        <span class="text-amber-400 font-semibold flex items-center gap-1.5"><i class="fa-solid fa-person-military-pointing"></i> 측면 방어</span>
+                        <span id="count-flank" class="font-mono bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full border border-amber-500/30">0명</span>
+                    </div>
+                    <div class="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800 flex items-center justify-between">
+                        <span class="text-indigo-400 font-semibold flex items-center gap-1.5"><i class="fa-solid fa-wand-magic-sparkles"></i> 후방 딜/지원</span>
+                        <span id="count-rear" class="font-mono bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full border border-indigo-500/30">0명</span>
+                    </div>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- Right Column: Roster & Simulator (8 cols) -->
+        <section class="lg:col-span-8 flex flex-col gap-6">
+
+            <!-- Controls & View Mode Toggle -->
+            <div class="rpg-panel rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+                <!-- Search & Class Filter -->
+                <div class="flex items-center gap-2 w-full sm:w-auto flex-1">
+                    <div class="relative w-full sm:w-56">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500 text-xs">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                        </span>
+                        <input type="text" id="searchInput" placeholder="용사명/스킬 검색..." 
+                            class="w-full bg-slate-950/80 border border-slate-700 rounded-xl py-1.5 pl-8 pr-3 text-xs focus:outline-none focus:border-amber-500">
+                    </div>
+
+                    <select id="jobFilter" class="bg-slate-950/80 border border-slate-700 rounded-xl py-1.5 px-3 text-xs focus:outline-none focus:border-amber-500 cursor-pointer">
+                        <option value="ALL">모든 직업군</option>
+                        <option value="강령술사">강령술사</option>
+                        <option value="수도사">수도사</option>
+                        <option value="광전사">광전사</option>
+                        <option value="치유사">치유사</option>
+                        <option value="투사">투사</option>
+                    </select>
+                </div>
+
+                <!-- View Toggle Buttons -->
+                <div class="flex items-center gap-1 bg-slate-950/80 p-1 rounded-xl border border-slate-800">
+                    <button id="view-card-btn" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-amber-400 bg-slate-800 transition">
+                        <i class="fa-solid fa-address-card mr-1"></i> 카드 뷰
+                    </button>
+                    <button id="view-table-btn" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white transition">
+                        <i class="fa-solid fa-table-list mr-1"></i> 테이블 뷰
+                    </button>
+                </div>
+            </div>
+
+            <!-- Dynamic Display Area (Cards OR Table) -->
+            <div id="cardsDisplay" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Dynamic Hero Cards Inserted Here -->
+            </div>
+
+            <div id="tableDisplay" class="rpg-panel rounded-2xl p-4 hidden overflow-x-auto">
+                <table class="w-full text-left text-xs border-collapse">
+                    <thead>
+                        <tr class="border-b border-slate-800 text-amber-400 font-serif uppercase tracking-wider">
+                            <th class="py-3 px-3">ID</th>
+                            <th class="py-3 px-3">용사 닉네임</th>
+                            <th class="py-3 px-3">직업군</th>
+                            <th class="py-3 px-3">레벨</th>
+                            <th class="py-3 px-3">주력 스킬</th>
+                            <th class="py-3 px-3">전술 포지션</th>
+                            <th class="py-3 px-3 text-center">관리</th>
+                        </tr>
+                    </thead>
+                    <tbody id="heroTableBody" class="divide-y divide-slate-800/60">
+                        <!-- Dynamic Table Rows Inserted Here -->
+                    </tbody>
+                </table>
+            </div>
+
+        </section>
+
+    </main>
+
+    <!-- SQL Export Modal -->
+    <div id="sqlModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md hidden">
+        <div class="rpg-panel w-full max-w-2xl rounded-2xl p-6 border border-amber-500/30 flex flex-col max-h-[85vh]">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+                <h3 class="font-serif font-bold text-amber-400 text-base flex items-center gap-2">
+                    <i class="fa-solid fa-database"></i> MariaDB DDL & INSERT SQL
+                </h3>
+                <button id="btn-close-sql" class="text-slate-400 hover:text-white p-1 text-lg">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="my-4 flex-1 overflow-hidden flex flex-col">
+                <textarea id="sqlArea" readonly class="w-full flex-1 bg-slate-950 border border-slate-800 rounded-xl p-4 font-mono text-xs text-amber-300 leading-relaxed focus:outline-none resize-none h-72"></textarea>
+            </div>
+            <div class="flex justify-end pt-2 border-t border-slate-800">
+                <button id="btn-copy-sql" class="px-4 py-2 rounded-xl bg-amber-500 text-slate-950 font-bold text-xs hover:bg-amber-400 transition flex items-center gap-2">
+                    <i class="fa-regular fa-copy"></i> 복사하기
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div id="toastContainer" class="fixed bottom-6 right-6 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <script>
+        // Initial Dataset
+        const INITIAL_HEROES = [
+            { hero_id: 1, nickname: '뼈의 군주', job_class: '강령술사', level: 99, main_skill: '뼈 창 (Bone Spear)', tactical_position: '후방 광역 딜러' },
+            { hero_id: 2, nickname: '빛의 수호자', job_class: '수도사', level: 70, main_skill: '빛의 파동 (Wave of Light)', tactical_position: '전방 탱커 겸 딜러' },
+            { hero_id: 3, nickname: '아이어의 검', job_class: '광전사', level: 50, main_skill: '사이오닉 돌진', tactical_position: '최전방 돌격 대장' },
+            { hero_id: 4, nickname: '새벽의 순례자', job_class: '치유사', level: 60, main_skill: '아침 걷기 (회복 벞)', tactical_position: '후방 지원 및 힐러' },
+            { hero_id: 5, nickname: '단백질 전사', job_class: '투사', level: 45, main_skill: '닭가슴살 섭취 (체력 증가)', tactical_position: '측면 방어선' }
+        ];
+
+        // Job Class Badge Styles & Icons
+        const jobStyles = {
+            '강령술사': { icon: 'fa-skull', badge: 'bg-purple-950/80 text-purple-300 border-purple-500/40' },
+            '수도사': { icon: 'fa-sun', badge: 'bg-amber-950/80 text-amber-300 border-amber-500/40' },
+            '광전사': { icon: 'fa-burst', badge: 'bg-rose-950/80 text-rose-300 border-rose-500/40' },
+            '치유사': { icon: 'fa-staff-snake', badge: 'bg-emerald-950/80 text-emerald-300 border-emerald-500/40' },
+            '투사': { icon: 'fa-hand-fist', badge: 'bg-orange-950/80 text-orange-300 border-orange-500/40' },
+            '마법사': { icon: 'fa-wand-magic-sparkles', badge: 'bg-cyan-950/80 text-cyan-300 border-cyan-500/40' },
+            '암살자': { icon: 'fa-mask', badge: 'bg-slate-900 text-slate-300 border-slate-600' },
+            '성기사': { icon: 'fa-shield-halved', badge: 'bg-blue-950/80 text-blue-300 border-blue-500/40' }
+        };
+
+        let heroes = [...INITIAL_HEROES];
+        let currentView = 'card'; // 'card' or 'table'
+
+        // DOM Elements
+        const cardsDisplay = document.getElementById('cardsDisplay');
+        const tableDisplay = document.getElementById('tableDisplay');
+        const heroTableBody = document.getElementById('heroTableBody');
+        const searchInput = document.getElementById('searchInput');
+        const jobFilter = document.getElementById('jobFilter');
+        const heroForm = document.getElementById('heroForm');
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            renderRoster();
+            setupEvents();
+        });
+
+        function setupEvents() {
+            // View Mode Toggle
+            document.getElementById('view-card-btn').addEventListener('click', () => setView('card'));
+            document.getElementById('view-table-btn').addEventListener('click', () => setView('table'));
+
+            // Search & Filters
+            searchInput.addEventListener('input', renderRoster);
+            jobFilter.addEventListener('change', renderRoster);
+
+            // Form Submit
+            heroForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const newHero = {
+                    hero_id: heroes.length ? Math.max(...heroes.map(h => h.hero_id)) + 1 : 1,
+                    nickname: document.getElementById('nickname').value.trim(),
+                    job_class: document.getElementById('job_class').value,
+                    level: parseInt(document.getElementById('level').value),
+                    main_skill: document.getElementById('main_skill').value.trim(),
+                    tactical_position: document.getElementById('tactical_position').value
+                };
+                heroes.unshift(newHero);
+                renderRoster();
+                heroForm.reset();
+                showToast(`용사 '${newHero.nickname}' 님이 길드에 가입하셨습니다!`, 'success');
+            });
+
+            // Reset Data
+            document.getElementById('btn-reset').addEventListener('click', () => {
+                heroes = [...INITIAL_HEROES];
+                renderRoster();
+                showToast('초기 용사 5인의 정보로 복원되었습니다.', 'info');
+            });
+
+            // SQL Modal
+            document.getElementById('btn-sql-modal').addEventListener('click', openSqlModal);
+            document.getElementById('btn-close-sql').addEventListener('click', () => document.getElementById('sqlModal').classList.add('hidden'));
+            document.getElementById('btn-copy-sql').addEventListener('click', () => {
+                const sqlText = document.getElementById('sqlArea').value;
+                document.getElementById('sqlArea').select();
+                document.execCommand('copy');
+                showToast('SQL 문이 클립보드에 복사되었습니다.', 'success');
+            });
+        }
+
+        function setView(view) {
+            currentView = view;
+            if (view === 'card') {
+                cardsDisplay.classList.remove('hidden');
+                tableDisplay.classList.add('hidden');
+                document.getElementById('view-card-btn').className = 'px-3 py-1.5 rounded-lg text-xs font-semibold text-amber-400 bg-slate-800 transition';
+                document.getElementById('view-table-btn').className = 'px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white transition';
+            } else {
+                cardsDisplay.classList.add('hidden');
+                tableDisplay.classList.remove('hidden');
+                document.getElementById('view-table-btn').className = 'px-3 py-1.5 rounded-lg text-xs font-semibold text-amber-400 bg-slate-800 transition';
+                document.getElementById('view-card-btn').className = 'px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white transition';
+            }
+        }
+
+        function renderRoster() {
+            const search = searchInput.value.toLowerCase().trim();
+            const filter = jobFilter.value;
+
+            const filtered = heroes.filter(h => {
+                const matchSearch = h.nickname.toLowerCase().includes(search) || h.main_skill.toLowerCase().includes(search);
+                const matchJob = filter === 'ALL' || h.job_class === filter;
+                return matchSearch && matchJob;
+            });
+
+            // Render Cards View
+            cardsDisplay.innerHTML = '';
+            filtered.forEach(h => {
+                const jobInfo = jobStyles[h.job_class] || { icon: 'fa-user-shield', badge: 'bg-slate-800 text-slate-300 border-slate-700' };
+                const card = document.createElement('div');
+                card.id = `hero-card-${h.hero_id}`;
+                card.className = 'rpg-card rounded-2xl p-4 flex flex-col justify-between relative overflow-hidden';
+                card.innerHTML = `
+                    <div>
+                        <div class="flex items-start justify-between gap-2 mb-2">
+                            <div class="flex items-center gap-2.5">
+                                <div class="w-10 h-10 rounded-xl bg-slate-900 border border-slate-700 flex items-center justify-center text-amber-400 text-lg">
+                                    <i class="fa-solid ${jobInfo.icon}"></i>
+                                </div>
+                                <div>
+                                    <h3 class="font-serif font-bold text-sm text-amber-300 leading-tight">${h.nickname}</h3>
+                                    <span class="inline-block mt-0.5 text-[10px] px-2 py-0.5 rounded-md border ${jobInfo.badge}">
+                                        ${h.job_class}
+                                    </span>
+                                </div>
+                            </div>
+                            <span class="font-mono text-xs font-bold text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-lg border border-amber-500/20">
+                                Lv. <span id="level-num-${h.hero_id}">${h.level}</span>
+                            </span>
+                        </div>
+
+                        <!-- Skill & Position -->
+                        <div class="mt-3 space-y-1.5 text-xs bg-slate-950/60 p-2.5 rounded-xl border border-slate-800/80">
+                            <div class="flex items-center justify-between text-slate-300">
+                                <span class="text-slate-500 text-[11px]"><i class="fa-solid fa-bolt text-amber-400 mr-1"></i> 주력 스킬</span>
+                                <span class="font-medium text-amber-200">${h.main_skill}</span>
+                            </div>
+                            <div class="flex items-center justify-between text-slate-300">
+                                <span class="text-slate-500 text-[11px]"><i class="fa-solid fa-crosshairs text-rose-400 mr-1"></i> 전술 배치</span>
+                                <span class="font-medium text-slate-300">${h.tactical_position}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="mt-4 pt-3 border-t border-slate-800/80 flex items-center gap-2">
+                        <button onclick="levelUpHero(${h.hero_id})" class="flex-1 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 text-xs font-semibold transition active:scale-95">
+                            <i class="fa-solid fa-angles-up mr-1"></i> 레벨업
+                        </button>
+                        <button onclick="castSkill(${h.hero_id})" class="flex-1 py-1.5 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/30 text-xs font-semibold transition active:scale-95">
+                            <i class="fa-solid fa-wand-magic-sparkles mr-1"></i> 스킬 발동
+                        </button>
+                        <button onclick="deleteHero(${h.hero_id})" class="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition">
+                            <i class="fa-solid fa-trash-can text-xs"></i>
+                        </button>
+                    </div>
+                `;
+                cardsDisplay.appendChild(card);
+            });
+
+            // Render Table View
+            heroTableBody.innerHTML = '';
+            filtered.forEach(h => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-800/40 transition';
+                tr.innerHTML = `
+                    <td class="py-2.5 px-3 font-mono text-slate-500">#${h.hero_id}</td>
+                    <td class="py-2.5 px-3 font-bold text-amber-300">${h.nickname}</td>
+                    <td class="py-2.5 px-3 text-slate-300">${h.job_class}</td>
+                    <td class="py-2.5 px-3 font-mono font-bold text-amber-400">Lv.${h.level}</td>
+                    <td class="py-2.5 px-3 text-slate-300">${h.main_skill}</td>
+                    <td class="py-2.5 px-3 text-slate-400">${h.tactical_position}</td>
+                    <td class="py-2.5 px-3 text-center">
+                        <button onclick="deleteHero(${h.hero_id})" class="text-slate-500 hover:text-rose-400">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    </td>
+                `;
+                heroTableBody.appendChild(tr);
+            });
+
+            updateFormationStats();
+        }
+
+        function updateFormationStats() {
+            let front = 0, flank = 0, rear = 0;
+            heroes.forEach(h => {
+                if (h.tactical_position.includes('전방')) front++;
+                else if (h.tactical_position.includes('측면')) flank++;
+                else if (h.tactical_position.includes('후방')) rear++;
+            });
+            document.getElementById('count-front').textContent = `${front}명`;
+            document.getElementById('count-flank').textContent = `${flank}명`;
+            document.getElementById('count-rear').textContent = `${rear}명`;
+        }
+
+        function levelUpHero(id) {
+            const hero = heroes.find(h => h.hero_id === id);
+            if (hero && hero.level < 99) {
+                hero.level += 1;
+                document.getElementById(`level-num-${id}`).textContent = hero.level;
+                
+                const card = document.getElementById(`hero-card-${id}`);
+                if (card) {
+                    card.classList.add('anim-level-up');
+                    setTimeout(() => card.classList.remove('anim-level-up'), 700);
+                }
+                showToast(`✨ ${hero.nickname} 님의 레벨이 상승하였습니다! (Lv.${hero.level})`, 'success');
+            } else if (hero.level >= 99) {
+                showToast(`⚡ ${hero.nickname} 님은 이미 최고 레벨(Lv.99)에 도달했습니다!`, 'info');
+            }
+        }
+
+        function castSkill(id) {
+            const hero = heroes.find(h => h.hero_id === id);
+            if (hero) {
+                const card = document.getElementById(`hero-card-${id}`);
+                if (card) {
+                    card.classList.add('anim-skill-cast');
+                    setTimeout(() => card.classList.remove('anim-skill-cast'), 600);
+                }
+                showToast(`⚔️ [${hero.nickname}] [${hero.main_skill}] 발동!`, 'info');
+            }
+        }
+
+        function deleteHero(id) {
+            const target = heroes.find(h => h.hero_id === id);
+            heroes = heroes.filter(h => h.hero_id !== id);
+            renderRoster();
+            if (target) showToast(`용사 '${target.nickname}' 님이 길드에서 탈퇴하셨습니다.`, 'error');
+        }
+
+        function openSqlModal() {
+            let sql = `CREATE TABLE hero_guild (\n` +
+                `    hero_id INT AUTO_INCREMENT PRIMARY KEY COMMENT '용사 고유 번호',\n` +
+                `    nickname VARCHAR(50) NOT NULL COMMENT '용사 닉네임',\n` +
+                `    job_class VARCHAR(30) NOT NULL COMMENT '직업군',\n` +
+                `    level INT DEFAULT 1 COMMENT '현재 레벨',\n` +
+                `    main_skill VARCHAR(100) COMMENT '주력 스킬',\n` +
+                `    tactical_position VARCHAR(50) COMMENT '전술 배치 포지션',\n` +
+                `    join_date DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '길드 가입일'\n` +
+                `) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='RPG 용사 길드 명부';\n\n`;
+
+            sql += `INSERT INTO hero_guild (nickname, job_class, level, main_skill, tactical_position) VALUES\n`;
+            sql += heroes.map((h, i) => 
+                `('${h.nickname}', '${h.job_class}', ${h.level}, '${h.main_skill}', '${h.tactical_position}')` + 
+                (i === heroes.length - 1 ? ';' : ',')
+            ).join('\n');
+
+            sql += `\n\nCOMMIT;\nSELECT * FROM hero_guild;`;
+
+            document.getElementById('sqlArea').value = sql;
+            document.getElementById('sqlModal').classList.remove('hidden');
+        }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `pointer-events-auto flex items-center gap-2 px-4 py-2.5 rounded-xl border text-xs font-semibold shadow-xl backdrop-blur-md transition-all duration-300 ${
+                type === 'success' ? 'bg-amber-950/90 text-amber-200 border-amber-500/50' :
+                type === 'error' ? 'bg-rose-950/90 text-rose-200 border-rose-500/50' :
+                'bg-slate-900/90 text-cyan-200 border-cyan-500/50'
+            }`;
+            toast.innerHTML = message;
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                setTimeout(() => toast.remove(), 300);
+            }, 2500);
+        }
+    </script>
+</body>
+</html>
